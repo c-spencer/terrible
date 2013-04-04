@@ -47,11 +47,15 @@ repl_eval = (s, context, filename, cb) ->
   if !cb
     console.log "terrible> #{s}"
 
-  ast = reader.readString(s)
-  # print ast
-  gen = writer.asm(ast, context.env, context.scope.newScope())
-  # print gen
-  result = eval_in_env(context.env, gen)
+  try
+    ast = reader.readString(s)
+    # print ast
+    gen = writer.asm(ast, context.env, context.scope.newScope())
+    # print gen
+    result = eval_in_env(context.env, gen)
+  catch exc
+    result = exc
+
   if cb
     cb(null, result)
   else
