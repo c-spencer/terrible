@@ -14,7 +14,7 @@ This is mostly an experiment for fun and learning a bit more about compilers and
 
 ## Examples
 
-A few quick pastes from test code. Things such as ensuring all forms are expressions and optimal generation are yet to do.
+A few quick pastes from test code. Things such as ensuring all forms are expressions and optimal generation are yet to do (this output is for form-by-form evaluation against an environment parameter, hence the return statements).
 
 ```clojure
 (def inc (fn [x] (+ x 1)))
@@ -26,6 +26,8 @@ $env.inc = function (x) {
 };
 ```
 
+---
+
 ```clojure
 (inc 1)
 ```
@@ -33,6 +35,8 @@ $env.inc = function (x) {
 ```javascript
 return $env['inc'](1);
 ```
+
+---
 
 ```clojure
 (def twice (macro [& e] `(+ 4 5 ~@e 6 3))))
@@ -45,16 +49,20 @@ $env.twice = $env['terr$'].Macro(function () {
 });
 ```
 
+---
+
 ```clojure
-terrible> (twice 1 2)
+(twice 1 2)
 ```
 
 ```javascript
 return 4 + 5 + 1 + 2 + 6 + 3;
 ```
 
+---
+
 ```clojure
-terrible> [1 2 3 @body 4 5 6]
+[1 2 3 @body 4 5 6]
 ```
 
 ```javascript
@@ -69,13 +77,17 @@ return [
 ]);
 ```
 
+---
+
 ```clojure
-terrible> (def x 10)
+(def x 10)
 ```
 
 ```javascript
 $env.x = 10;
 ```
+
+---
 
 ```clojure
 (let [{a :a b :b} {:a 6 :b 7} y 15] (+ a b y))
