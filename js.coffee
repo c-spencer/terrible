@@ -36,7 +36,13 @@ exports.MemberExpression = (object, property) ->
   property: property
 
 exports.MemberExpressionComputed = (object, property) ->
+  if property.type == 'Literal' and /^[a-zA-Z_$][0-9a-zA-Z_$]*$/.exec(property.value)
+    property = exports.Identifier(property.value)
+    computed = false
+  else
+    computed = true
+
   type: 'MemberExpression'
   object: object
   property: property
-  computed: true
+  computed: computed
