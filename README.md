@@ -41,7 +41,7 @@ console.log(env.js())
 
 (if (> 7 6)
   (do
-    (console.log "All's \\" well")
+    (console.log "All's \" well")
     7)
   (do
     (console.log "Oh hum, numbers have broken.")
