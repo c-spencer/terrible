@@ -1,0 +1,12 @@
+{
+  "name": "terrible",
+  "version": "0.0.1",
+  "description": "A horrible hybrid of the ClojureScript and CoffeeScript approaches",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/c-spencer/terrible.git"
+  },
+  "dependencies": {
+    "escodegen": "0.0.20"
+  }
+}
