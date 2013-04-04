@@ -8,8 +8,7 @@ class Buffer
     @pos = 0
 
   read1: ->
-    if @pos > @string.length
-      console.trace()
+    if @pos >= @string.length
       throw 'EOF while reading'
 
     ch = @string[@pos]
@@ -34,7 +33,6 @@ gen_arg = (n) ->
 class Reader
 
   unmatchedDelimiter: (reader) ->
-    console.trace()
     throw "Unmatched delimiter"
 
   constructor: ->
@@ -56,9 +54,12 @@ class Reader
     @dispatch_macros =
       '(': @fnReader
 
-  readString: (str) ->
+  readString: (str, form_cb) ->
     buffer = new Buffer(str)
-    @read(buffer, true)
+    forms = []
+    while form = @read(buffer, true, true)
+      forms.push form
+    forms
 
   isWhitespace: (str) -> str.match(/[\t\r\n,\s]/)
   isDigit: (str) -> /^[0-9]$/.exec(str)
@@ -67,11 +68,19 @@ class Reader
   isTerminatingMacro: (ch) ->
     ch not in ['#', '\'', '%'] and @macros[ch]
 
-  read: (buffer, recursive) ->
+  read: (buffer, recursive, silent=false) ->
     while true
-      ch = buffer.read1()
-      while @isWhitespace(ch)
+      if silent
+        try
+          ch = buffer.read1()
+          while @isWhitespace(ch)
+            ch = buffer.read1()
+        catch exc
+          return null
+      else
         ch = buffer.read1()
+        while @isWhitespace(ch)
+          ch = buffer.read1()
 
       if @isDigit(ch)
         return @readNumber(buffer, ch)
