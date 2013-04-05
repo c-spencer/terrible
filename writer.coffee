@@ -1,5 +1,5 @@
 terribleWalker = require('./walker')
-pre = require './prelude'
+pre = require './src/coffee/prelude'
 JS = require './js'
 codegen = require 'escodegen'
 
@@ -299,7 +299,10 @@ js_macros =
     walker(scope)(right_form)
 
   ns: ({env, walker, scope}, ns) ->
-    walker(scope) pre.List(pre.Symbol('set!'), pre.Symbol('ns$'), ns)
+    env.ns$ = ns.value
+    a = []
+    a.$explode = true
+    a
 
   require: ({env, walker, scope, statement}, bindings, use_kw) ->
     if bindings.type == 'Vector'

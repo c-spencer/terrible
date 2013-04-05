@@ -1,4 +1,4 @@
-(ns "core")
+(ns "trbl/core")
 
 (jsmacro "@" [{walker :walker scope :scope} form]
   (set! walker (walker scope))

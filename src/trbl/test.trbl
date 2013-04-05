@@ -1,10 +1,12 @@
-(ns "test")
+(ns "trbl/test")
 
-(def core (require "./core" :use))
+(def core (require "trbl!trbl/core" :use))
+
+(require [codegen "!escodegen"])
 
 (defn inc [x] (+ x 1))
 
-; (require [{List :List} "./prelude"])
+; (require [{List :List} "trbl!trbl/prelude"])
 
 ; (require "./prelude" :use)
 

@@ -1,7 +1,7 @@
 # A partial port and modification of the Clojure reader
 # https://github.com/clojure/clojure/blob/master/src/jvm/clojure/lang/LispReader.java
 
-pre = require './prelude'
+pre = require './src/coffee/prelude'
 
 class Buffer
   constructor: (@string) ->

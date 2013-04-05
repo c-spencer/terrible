@@ -3,14 +3,53 @@ repl = require('repl')
 writer = require('./writer')
 codegen = require 'escodegen'
 JS = require './js'
+path = require 'path'
+url = require 'url'
 
 print = (args...) -> console.log require('util').inspect(args, false, 20)
 
-pre = require './prelude'
+pre = require './src/coffee/prelude'
+
+PathResolver =
+  AMD: (ns, name) ->
+    if name.match(/^!/)
+      return name.substring(1)
+    name
+
+  clean: (name) ->
+    name.replace(/^[a-z]*!/, '')
+
+  FSRel: (ns, name) ->
+    if name.match(/^!/)
+      return name.substring(1)
+
+    [full, loader, filepath] = name.match(/^(?:([a-z]+)!)?(.+)$/)
+
+    if loader
+      name = "#{filepath}.#{loader}"
+
+    filename = path.basename(name)
+    name_root = path.dirname(name)
+    ns_root = path.dirname(ns)
+
+    filepath = path.join((path.relative(ns_root, name_root) or "."), filename)
+
+    if filepath.match(/^[^\.]/)
+      filepath = "./#{filepath}"
+
+    filepath
+
+  FSAbs: (ns, name, root) ->
+    if name.match(/^!/)
+      return name.substring(1)
+
+    path.join(path.dirname(root), PathResolver.FSRel(ns, name))
+
 
 class CommonJSModuleLoader
-  require: (ns, name) ->
-    require(name)
+  require: (ns, name, env_path) ->
+    require PathResolver.FSAbs(ns, name, env_path)
+
 
 require.extensions['.trbl'] = (module, filename) ->
   env = Environment.fromFile(filename)
@@ -37,7 +76,9 @@ ModuleWrapper = (ns, deps, body) ->
                     JS.CallExpression(
                       JS.Identifier('factory')
                       deps.map (dep) ->
-                        JS.CallExpression(JS.Identifier('require'), [JS.Literal(dep.path)])
+                        JS.CallExpression(JS.Identifier('require'), [
+                          JS.Literal(PathResolver.FSRel(ns, dep.path))
+                        ])
                     )
                   )
                 )
@@ -56,8 +97,10 @@ ModuleWrapper = (ns, deps, body) ->
                   JS.ExpressionStatement(
                     JS.CallExpression(
                       JS.Identifier('define')
-                      [ # TODO: resolve relative paths
-                        JS.ArrayExpression(deps.map((dep) -> dep.path).map(JS.Literal))
+                      [
+                        JS.ArrayExpression(
+                          deps.map((dep) -> JS.Literal(PathResolver.AMD(ns, dep.path)))
+                        )
                         JS.Identifier('factory')
                       ]
                     )
@@ -71,7 +114,8 @@ ModuleWrapper = (ns, deps, body) ->
                       JS.CallExpression(
                         JS.Identifier('factory')
                         deps.map (dep) ->
-                          JS.MemberExpressionComputed(JS.Identifier('root'), JS.Identifier(dep.path))
+                          JS.MemberExpressionComputed(JS.Identifier('root'),
+                            JS.Literal(PathResolver.clean(dep.path)))
                       )
                     )
                   )
@@ -97,16 +141,16 @@ class Environment
 
   @loaded = {}
 
-  @fromFile: (path) ->
-    path = require('path').resolve(path)
-    if !Environment.loaded[path]
-      Environment.loaded[path] = new Environment
-      Environment.loaded[path].eval require('fs').readFileSync(path, 'utf-8')
-      Environment.loaded[path]
+  @fromFile: (filepath) ->
+    filepath = path.resolve(filepath)
+    if !Environment.loaded[filepath]
+      Environment.loaded[filepath] = new Environment(filepath)
+      Environment.loaded[filepath].eval require('fs').readFileSync(filepath, 'utf-8')
+      Environment.loaded[filepath]
 
-    Environment.loaded[path]
+    Environment.loaded[filepath]
 
-  constructor: ->
+  constructor: (@filepath) ->
     @reader = new Reader()
     @module_loader = new CommonJSModuleLoader()
     @context =
@@ -120,8 +164,13 @@ class Environment
     @requires_len = 0
     @deps = []
 
+    @prepped = null
+
+  prep: ->
+    @prepped = true
+    console.log 'PREPPING'
     # prep the environment
-    @eval '(require [terr$ "./prelude"])'
+    @eval '(require [terr$ "coffee/prelude"])'
 
   check_imports: ->
     if @context.env.requires$.length > @requires_len
@@ -130,7 +179,7 @@ class Environment
         spec =
           munged: req.munged
           path: req.path
-          value: @module_loader.require(@context.env.ns$, req.path)
+          value: @module_loader.require(@context.env.ns$, req.path, @filepath)
         @deps.push spec
 
       @requires_len = @context.env.requires$.length
@@ -169,9 +218,13 @@ class Environment
 
       gens = writer.asm(form, @context.env, @context.scope.newScope())
 
+      if @context.env.ns$ and !@prepped
+        @prep()
+      @check_imports()
+
       if !gens.$explode
         gens = [gens]
-      @check_imports()
+
       for gen in gens
         @context.js.push(gen)
         result = @eval_ast(gen)
@@ -200,7 +253,7 @@ class Environment
     result = @eval(s)
     cb null, result
 
-env = Environment.fromFile('./core.trbl')
-console.log env.js()
-# env = Environment.fromFile('./test.trbl')
+# env = Environment.fromFile('./src/trbl/core.trbl')
 # console.log env.js()
+env = Environment.fromFile('./src/trbl/test.trbl')
+console.log env.js()
