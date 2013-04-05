@@ -112,8 +112,6 @@ class Environment
     @context =
       scope: new writer.Scope
       env: {
-        decls: {}
-        env: {}
         requires$: []
         ns$: ""
       }
@@ -160,11 +158,17 @@ class Environment
 
     result
 
-  eval: (str) ->
+  eval: (str, read_result=false) ->
     forms = @reader.readString(str)
 
-    for form in forms
+    for form, i in forms
+      if read_result
+        form.$statement = i < (forms.length - 1)
+      else
+        form.$statement = true
+
       gens = writer.asm(form, @context.env, @context.scope.newScope())
+
       if !gens.$explode
         gens = [gens]
       @check_imports()

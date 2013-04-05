@@ -45,3 +45,9 @@ exports.For = (iteratee, body, concat=false) ->
       else
         result.push body([k, v])
   result
+
+exports.Copy = (target, source) ->
+  for k, v of source
+    if !~k.indexOf('$')
+      target[k] = v
+  target
