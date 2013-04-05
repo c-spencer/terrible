@@ -17,7 +17,7 @@ PathResolver =
     name
 
   clean: (name) ->
-    name.replace(/^[a-z]*!/, '')
+    name.replace(/(^[a-z]*!|\.[a-z]+$)/, '')
 
   FSRel: (ns, name) ->
     if name.match(/^!/)
@@ -43,7 +43,9 @@ PathResolver =
     if name.match(/^!/)
       return name.substring(1)
 
-    path.join(path.dirname(root), PathResolver.FSRel(ns, name))
+    abs = path.join(path.dirname(root), PathResolver.FSRel(ns, name))
+    console.log abs
+    abs
 
 
 class CommonJSModuleLoader
@@ -77,7 +79,7 @@ ModuleWrapper = (ns, deps, body) ->
                       JS.Identifier('factory')
                       deps.map (dep) ->
                         JS.CallExpression(JS.Identifier('require'), [
-                          JS.Literal(PathResolver.FSRel(ns, dep.path))
+                          JS.Literal(PathResolver.clean(PathResolver.FSRel(ns, dep.path)))
                         ])
                     )
                   )
@@ -139,6 +141,8 @@ ModuleWrapper = (ns, deps, body) ->
 
 class Environment
 
+  @compile = false
+
   @loaded = {}
 
   @fromFile: (filepath) ->
@@ -146,11 +150,15 @@ class Environment
     if !Environment.loaded[filepath]
       Environment.loaded[filepath] = new Environment(filepath)
       Environment.loaded[filepath].eval require('fs').readFileSync(filepath, 'utf-8')
-      Environment.loaded[filepath]
+
+      if Environment.compile
+        env = Environment.loaded[filepath]
+        filename = path.basename(env.context.env.ns$) + ".js"
+        require('fs').writeFileSync(path.join(path.dirname(filepath), filename), env.js())
 
     Environment.loaded[filepath]
 
-  constructor: (@filepath) ->
+  constructor: (@filepath, @compile=false) ->
     @reader = new Reader()
     @module_loader = new CommonJSModuleLoader()
     @context =
@@ -174,7 +182,7 @@ class Environment
 
     # prep the environment
     @eval '(require [terr$ "coffee/prelude"])
-           (require "trbl/core" :use)'
+           (require "trbl!trbl/core" :use)'
 
   check_imports: ->
     if @context.env.requires$.length > @requires_len
@@ -236,11 +244,12 @@ class Environment
     result
 
   repl: ->
-    @eval('(ns "user")')
+    if !@context.env.ns$
+      @eval('(ns "user")')
 
     @repl_session = repl.start
       eval: @repl_eval
-      prompt: 'terrible (user)> '
+      prompt: "terrible (#{@context.env.ns$})> "
 
 
   repl_eval: (s, context, filename, cb) =>

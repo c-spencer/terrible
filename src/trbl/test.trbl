@@ -1,10 +1,10 @@
 (ns "trbl/test")
 
-(def core (require "trbl!trbl/core" :use))
-
 (require [codegen "!escodegen"])
 
 (defn inc [x] (+ x 1))
+
+(console.log "Hello from trbl!")
 
 ; (require [{List :List} "trbl!trbl/prelude"])
 
