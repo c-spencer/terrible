@@ -1,0 +1,43 @@
+(def defmacro
+  (macro [name & body]
+    `(def ~name (macro ~@body))))
+
+(defmacro defn [name bindings & body]
+  `(def ~name (fn ~bindings ~@body)))
+
+(defn ns [name & bindings]
+  (set! ns$ name))
+
+(use "./prelude")
+
+(console.log "LIST" (List.toString))
+
+; (def test-val {:a [1 2] :b [3 4]})
+
+; (for [[k v] test-val
+;       y v]
+;   y)
+
+;(def inc (fn [x] (+ x 1)))
+
+;(inc 1)
+
+;(def splice (macro [& e] `(+ 4 5 ~@e 6 3)))
+
+;(splice 1 2)
+
+;[1 2 3 @body 4 5 6]
+
+;(def x 10)
+
+;(let [x x [a b] x] x)
+
+;(let [{a :a b :b} {:a 6 :b 7} y 15] (+ a b y))
+
+;(if (> 7 6)
+;  (do
+;    (console.log "All's \\" well")
+;   7)
+;  (do
+;    (console.log "Oh hum, numbers have broken.")
+;    6))

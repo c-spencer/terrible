@@ -7,25 +7,60 @@ print = (args...) -> console.log require('util').inspect(args, false, 20)
 
 pre = require './prelude'
 
+class CommonJSModuleLoader
+  require: (ns, name) ->
+    require(name)
+
 class Environment
 
   constructor: ->
     @reader = new Reader()
+    @module_loader = new CommonJSModuleLoader()
     @context =
       scope: new writer.Scope
       env: {
         terr$: pre
+        uses$: []
+        imports$: []
+        ns$: ""
       }
       js: []
+
+    @uses_len = 0
+    @imports_len = 0
+    @args = {}
+
+  check_imports: ->
+    if @context.env.uses$.length > @uses_len
+      new_uses = @context.env.uses$.slice(@uses_len)
+      for use in new_uses
+        console.log 'USED', use
+        @args[use.munged] = @module_loader.require(@context.env.ns$, use.path)
+
+      @uses_len = @context.env.uses$.length
 
   eval_ast: (ast) ->
     if ast.type.match(/(Expression|Literal)$/)
       ast = {type: 'ReturnStatement', argument: ast}
+
+    # print ast
+
     js = codegen.generate(ast)
     try
-      result = new Function('$env', js)(@context.env)
+      keys = ['$env']
+      values = [@context.env]
+      for key, value of @args
+        keys.push key
+        values.push value
+
+      fn_js = "(function (js) { return new Function('#{keys.join('\', \'')}', js) })"
+      fn = eval(fn_js)
+
+      result = fn(js).apply(null, values)
     catch exc
       result = exc
+
+    # console.log js
 
     result
 
@@ -34,6 +69,7 @@ class Environment
 
     for form in forms
       gen = writer.asm(form, @context.env, @context.scope.newScope())
+      @check_imports()
       @context.js.push(gen)
       result = @eval_ast(gen)
 
@@ -60,30 +96,5 @@ class Environment
 
 env = new Environment
 
-console.log env.eval """
-  (def inc (fn [x] (+ x 1)))
-
-  (inc 1)
-
-  (def splice (macro [& e] `(+ 4 5 ~@e 6 3)))
-
-  (splice 1 2)
-
-  [1 2 3 @body 4 5 6]
-
-  (def x 10)
-
-  (let [x x [a b] x] x)
-
-  (let [{a :a b :b} {:a 6 :b 7} y 15] (+ a b y))
-
-  (if (> 7 6)
-    (do
-      (console.log "All's \\" well")
-      7)
-    (do
-      (console.log "Oh hum, numbers have broken.")
-      6))
-"""
-
+console.log env.eval require('fs').readFileSync('./test.trbl', 'utf-8')
 console.log env.js()

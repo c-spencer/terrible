@@ -100,7 +100,7 @@ reduceBinaryOperator = (values, op) ->
   left
 
 js_macros =
-  fn: (walker, scope, args...) ->
+  fn: (env, walker, scope, args...) ->
     fn_args = args[0]
 
     lhss = []
@@ -130,6 +130,9 @@ js_macros =
 
     body = args.slice(1).map(walker(new_scope))
 
+    if body.length == 0
+      throw "Fn needs a body"
+
     body = generateDestructuring(lhss, rhss).map(walker(new_scope)).concat(body)
 
     ret_arg = body.pop()
@@ -140,36 +143,40 @@ js_macros =
       else
         form
 
-    body.push JS.Return(ret_arg)
+    if ret_arg.type.match(/Statement$/)
+      throw 'Statement in last position of body'
+      # body.push ret_arg
+    else
+      body.push JS.Return(ret_arg)
 
     JS.Function(
       formal_args
       body
     )
 
-  'new': (walker, scope, callee, args...) ->
+  'new': (env, walker, scope, callee, args...) ->
     walker = walker(scope)
 
     type: 'NewExpression'
     callee: walker(callee)
     arguments: args.map(walker)
 
-  '/': (walker, scope, args...) ->
+  '/': (env, walker, scope, args...) ->
     reduceBinaryOperator(args.map(walker(scope)), '/')
 
-  '+': (walker, scope, args...) ->
+  '+': (env, walker, scope, args...) ->
     reduceBinaryOperator(args.map(walker(scope)), '+')
 
-  '-': (walker, scope, args...) ->
+  '-': (env, walker, scope, args...) ->
     reduceBinaryOperator(args.map(walker(scope)), '-')
 
-  '*': (walker, scope, args...) ->
+  '*': (env, walker, scope, args...) ->
     reduceBinaryOperator(args.map(walker(scope)), '*')
 
-  '>': (walker, scope, args...) ->
+  '>': (env, walker, scope, args...) ->
     reduceBinaryOperator(args.map(walker(scope)), '>')
 
-  '.': (walker, scope, callee, member, args...) ->
+  '.': (env, walker, scope, callee, member, args...) ->
     walker = walker(scope)
 
     JS.CallExpression(
@@ -177,30 +184,30 @@ js_macros =
       args.map(walker)
     )
 
-  '`': (walker, scope, form) ->
+  '`': (env, walker, scope, form) ->
     scope = scope.newScope()
     scope.quote()
     walker(scope)(form)
 
-  '~': (walker, scope, form) ->
+  '~': (env, walker, scope, form) ->
     scope = scope.newScope()
     scope.unquote()
     walker(scope)(form)
 
-  '@': (walker, scope, form) ->
+  '@': (env, walker, scope, form) ->
     form = walker(scope)(form)
     form.$explode = true
     form
 
-  'amap': (walker, scope, fn, arr) ->
+  'amap': (env, walker, scope, fn, arr) ->
     walker = walker(scope)
 
     JS.CallExpression(
-      JS.MemberExpression(walker(fn), Symbol('map'))
-      [walker(arr)]
+      JS.MemberExpression(walker(arr), pre.Symbol('map'))
+      [walker(fn)]
     )
 
-  'macro': (walker, scope, args, body...) ->
+  'macro': (env, walker, scope, args, body...) ->
     walker = walker(scope)
 
     walker(pre.List(
@@ -212,24 +219,22 @@ js_macros =
       ]
     ))
 
-  'get': (walker, scope, obj, key) ->
+  'get': (env, walker, scope, obj, key) ->
     walker = walker(scope)
 
     JS.MemberExpressionComputed(walker(obj), walker(key))
 
-  def: (walker, scope, id, value) ->
+  def: (env, walker, scope, id, value) ->
     id = walker(scope)(id)
 
-    type: 'ExpressionStatement'
-    expression:
-      type: 'AssignmentExpression'
-      operator: '='
-      left:
-        JS.MemberExpression(JS.Identifier('$env'), id)
-      right:
-        walker(scope)(value)
+    type: 'AssignmentExpression'
+    operator: '='
+    left:
+      JS.MemberExpression(JS.Identifier('$env'), id)
+    right:
+      walker(scope)(value)
 
-  'set!': (walker, scope, id, value) ->
+  'set!': (env, walker, scope, id, value) ->
     walker = walker(scope)
 
     type: 'AssignmentExpression'
@@ -239,15 +244,68 @@ js_macros =
     right:
       walker(value)
 
-  do: (walker, scope, body...) ->
+  do: (env, walker, scope, body...) ->
     walker = walker(scope.newScope())
     walker(pre.List(pre.List.apply(null, [pre.Symbol('fn'), pre.Vector(), body...])))
 
-  let: (walker, scope, bindings, body...) ->
+  for: (env, walker, scope, bindings, body...) ->
     if bindings.type != 'Vector'
       throw 'wrong let syntax'
 
     bindings = bindings
+
+    if bindings.length % 2
+      throw 'wrong number of args for for binding'
+
+    i = bindings.length - 2
+    right_form = null
+    while i >= 0
+      left = bindings[i]
+      right = bindings[i+1]
+      i -= 2
+
+      inner_args = [
+        pre.Symbol('fn')
+        pre.Vector(pre.Symbol('for$arg'))
+        generateDestructuring([left], [pre.Symbol('for$arg')])...
+      ]
+
+      if right_form == null
+        inner_args = inner_args.concat(body)
+      else
+        inner_args.push right_form
+
+      right_form = pre.List(
+        pre.Symbol('terr$.For')
+        right
+        pre.List.apply(null, inner_args)
+        pre.Literal(right_form?)
+      )
+
+    walker(scope)(right_form)
+
+  use: (env, walker, scope, modules...) ->
+    references = modules.map (s) -> s.value
+
+    for reference in references
+      env.uses$.push
+        path: reference
+        munged: mungeSymbol(reference)
+
+    walker(scope) pre.List(
+      pre.Symbol('for')
+      pre.Vector(pre.Symbol('ref'), pre.Vector.apply(null, references.map(mungeSymbol).map(pre.Symbol)),
+                 pre.Vector(pre.Symbol('k'), pre.Symbol('v')), pre.Symbol('ref'))
+      pre.List(
+        pre.Symbol('set!')
+        pre.List(pre.Symbol('get'), pre.Symbol('$env'), pre.Symbol('k'))
+        pre.Symbol('v')
+      )
+    )
+
+  let: (env, walker, scope, bindings, body...) ->
+    if bindings.type != 'Vector'
+      throw 'wrong let syntax'
 
     if bindings.length % 2
       throw 'wrong number of args for let binding'
@@ -266,8 +324,8 @@ js_macros =
 
     walker(scope) pre.List(pre.List.apply(null, fn_init.concat(body)))
 
-  var: (walker, scope, id, value) ->
-    id = JS.Identifier(id.name)
+  var: (env, walker, scope, id, value) ->
+    id = JS.Identifier(mungeSymbol id.name)
 
     value = walker(scope)(value)
 
@@ -281,7 +339,7 @@ js_macros =
     ]
     kind: 'var'
 
-  'if': (walker, scope, args...) ->
+  'if': (env, walker, scope, args...) ->
     walker = walker(scope)
 
     type: 'ConditionalExpression'
@@ -320,6 +378,7 @@ mungeSymbol = (str) ->
     .replace(/\//g, "_SLASH_")
     .replace(/\\/g, "_BSLASH_")
     .replace(/\?/g, "_QMARK_")
+    .replace(/\./g, "_DOT_")
 
 quoteCall = (context, quoted, fn) ->
   currently_quoted = context.quoted
@@ -450,7 +509,7 @@ TerribleToJsHandlers =
         )
 
     if isSymbol(first) and macro = js_macros[first.name]
-      return macro.apply(null, [walker, scope, node.slice(1)...])
+      return macro.apply(null, [context, walker, scope, node.slice(1)...])
 
     if isSymbol(first) and (r = resolveSymbol(first.name, context, scope)) and r.$macro
       args = node.slice(1)
@@ -519,6 +578,12 @@ TerribleToJsHandlers =
 
     ret
 
+  Keyword: (node, walker, context, scope) ->
+    JS.CallExpression(
+      terr$Keyword
+      [pre.Literal(node.toString())]
+    )
+
   Program: (node, walker, context, scope) ->
     walker = walker(scope)
 
@@ -551,18 +616,18 @@ TerribleToJsHandlers =
       root = parts[0]
 
       if context[root]
-        left = JS.MemberExpressionComputed(JS.Identifier('$env'), pre.Literal(root))
+        left = JS.MemberExpressionComputed(JS.Identifier('$env'), pre.Literal(mungeSymbol(root)))
       else
-        left = JS.Identifier(root)
+        left = JS.Identifier(mungeSymbol(root))
 
       i = 1
       while i < parts.length
-        left = JS.MemberExpression(left, JS.Identifier(parts[i]))
+        left = JS.MemberExpression(left, JS.Identifier(mungeSymbol(parts[i])))
         i += 1
       left
     else if id = scope.resolve(node.name)
       JS.Identifier(mungeSymbol(node.name))
-    else if context[node.name]
+    else if context[node.name]?
       JS.MemberExpressionComputed(JS.Identifier('$env'), pre.Literal(node.name))
     else
       JS.Identifier(mungeSymbol(node.name))

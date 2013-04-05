@@ -30,3 +30,18 @@ exports['+'] = (left, rest...) ->
   for arg in rest
     left += arg
   left
+exports.For = (iteratee, body, concat=false) ->
+  result = []
+  if iteratee instanceof Array
+    for i in iteratee
+      if concat
+        result.push.apply(result, body(i))
+      else
+        result.push body(i)
+  else
+    for k, v of iteratee
+      if concat
+        result.push.apply(result, body([k, v]))
+      else
+        result.push body([k, v])
+  result
