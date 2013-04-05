@@ -654,7 +654,7 @@ TerribleToJsHandlers =
       i += 2
 
       if isKeyword(left)
-        left = pre.Symbol(left.toString())
+        left = JS.Literal(left.toString())
       else if left.type == 'Literal'
         left = left
       else
@@ -664,7 +664,7 @@ TerribleToJsHandlers =
 
       props.push
         type: 'Property'
-        key: walker(left)
+        key: left
         value: walker(right)
         kind: 'init'
 
