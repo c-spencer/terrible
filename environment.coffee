@@ -168,9 +168,13 @@ class Environment
 
   prep: ->
     @prepped = true
-    console.log 'PREPPING'
+
+    if @repl_session?
+      @repl_session.prompt = "terrible (#{@context.env.ns$})> "
+
     # prep the environment
-    @eval '(require [terr$ "coffee/prelude"])'
+    @eval '(require [terr$ "coffee/prelude"])
+           (require "trbl/core" :use)'
 
   check_imports: ->
     if @context.env.requires$.length > @requires_len
@@ -232,9 +236,17 @@ class Environment
     result
 
   repl: ->
+    @eval('(ns "user")')
+
     @repl_session = repl.start
       eval: @repl_eval
-      prompt: 'terrible> '
+      prompt: 'terrible (user)> '
+
+
+  repl_eval: (s, context, filename, cb) =>
+    s = s.replace(/^\(/, '').replace(/\)$/, '')
+    result = @eval(s, true)
+    cb null, result
 
   force_statement: (node) ->
     if node.type.match(/(Expression|Literal|Identifier)$/)
@@ -248,12 +260,9 @@ class Environment
     # require('fs').writeFileSync('genast.js', require('util').inspect(ast, false, 20))
     codegen.generate(ast)
 
-  repl_eval = (s, context, filename, cb) ->
-    s = s.replace(/^\(/, '').replace(/\)$/, '')
-    result = @eval(s)
-    cb null, result
-
 # env = Environment.fromFile('./src/trbl/core.trbl')
 # console.log env.js()
-env = Environment.fromFile('./src/trbl/test.trbl')
-console.log env.js()
+# env = Environment.fromFile('./src/trbl/test.trbl')
+# console.log env.js()
+
+module.exports = Environment
