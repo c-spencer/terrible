@@ -43,7 +43,7 @@ class Scope
     return false
 
 
-generateDestructuring = (lhss, rhss) ->
+generateDestructuring = (lhss, rhss, assign='var') ->
   clauses = []
 
   for lhs, i in lhss
@@ -53,11 +53,11 @@ generateDestructuring = (lhss, rhss) ->
         rhs_id = rhs
       else
         rhs_id = pre.Symbol('$rhs')
-        clauses.push pre.List(pre.Symbol('var'), rhs_id, rhs)
+        clauses.push pre.List(pre.Symbol(assign), rhs_id, rhs)
 
       for ident, i in lhs
         clauses.push pre.List(
-          pre.Symbol('var')
+          pre.Symbol(assign)
           ident
           pre.List(pre.Symbol('get'), rhs_id, pre.Literal(i))
         )
@@ -67,7 +67,7 @@ generateDestructuring = (lhss, rhss) ->
         rhs_id = rhs
       else
         rhs_id = pre.Symbol('$rhs')
-        clauses.push pre.List(pre.Symbol('var'), rhs_id, rhs)
+        clauses.push pre.List(pre.Symbol(assign), rhs_id, rhs)
 
       i = 0
       while i < lhs.length
@@ -76,7 +76,7 @@ generateDestructuring = (lhss, rhss) ->
         i += 2
 
         clauses.push pre.List(
-          pre.Symbol('var')
+          pre.Symbol(assign)
           left
           pre.List(
             pre.Symbol('get')
@@ -85,7 +85,7 @@ generateDestructuring = (lhss, rhss) ->
           )
         )
     else
-      clauses.push pre.List(pre.Symbol('var'), lhs, rhs)
+      clauses.push pre.List(pre.Symbol(assign), lhs, rhs)
 
   clauses
 
@@ -149,7 +149,7 @@ js_macros =
     else
       body.push JS.Return(ret_arg)
 
-    JS.Function(
+    JS.FunctionExpression(
       formal_args
       body
     )
@@ -284,24 +284,39 @@ js_macros =
 
     walker(scope)(right_form)
 
-  use: (env, walker, scope, modules...) ->
-    references = modules.map (s) -> s.value
+  ns: (env, walker, scope, ns) ->
+    walker(scope) pre.List(pre.Symbol('set!'), pre.Symbol('ns$'), ns)
 
-    for reference in references
-      env.uses$.push
-        path: reference
-        munged: mungeSymbol(reference)
+  require: (env, walker, scope, bindings) ->
+    if bindings.type != 'Vector'
+      throw 'wrong require syntax'
 
-    walker(scope) pre.List(
-      pre.Symbol('for')
-      pre.Vector(pre.Symbol('ref'), pre.Vector.apply(null, references.map(mungeSymbol).map(pre.Symbol)),
-                 pre.Vector(pre.Symbol('k'), pre.Symbol('v')), pre.Symbol('ref'))
-      pre.List(
-        pre.Symbol('set!')
-        pre.List(pre.Symbol('get'), pre.Symbol('$env'), pre.Symbol('k'))
-        pre.Symbol('v')
-      )
-    )
+    if bindings.length % 2
+      throw 'wrong number of args for let binding'
+
+    names = []
+    values = []
+    for v, i in bindings
+      if i % 2
+        values.push v
+      else
+        names.push v
+
+    values = values.map (dep_path) ->
+      if dep_path.type != 'Literal'
+        throw 'require paths must be string literals'
+
+      munged = mungeSymbol(dep_path.value)
+
+      env.requires$.push
+        path: dep_path.value
+        munged: munged
+
+      return pre.Symbol(munged)
+
+    destructuring = generateDestructuring(names, values, 'def')
+
+    walker(scope) pre.List.apply(null, [pre.Symbol('do')].concat(destructuring))
 
   let: (env, walker, scope, bindings, body...) ->
     if bindings.type != 'Vector'
