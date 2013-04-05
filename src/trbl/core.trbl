@@ -1,14 +1,14 @@
 (ns "trbl/core")
 
 (jsmacro "@" [{walker :walker scope :scope} form]
-  (set! walker (walker scope))
-  (set! form (walker form))
-  (set! form.$explode true)
-  form)
+  (let [walker (walker scope)
+        form (walker form)]
+    (set! form.$explode true)
+    form))
 
-(jsmacro "new" [{walker :walker scope :scope JS :JS $env :env} callee & args]
-  (set! walker (walker scope))
-  (JS.NewExpression (walker callee) (amap walker args)))
+(jsmacro "new" [{walker :walker scope :scope JS :JS} callee & args]
+  (let [walker (walker scope)]
+    (JS.NewExpression (walker callee) (amap walker args))))
 
 (jsmacro "jsmacro" []
   (console.log "User space jsmacros are not allowed."))

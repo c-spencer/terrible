@@ -100,6 +100,9 @@ reduceBinaryOperator = (values, op) ->
     i += 1
   left
 
+id_counter = 0
+nextID = -> ++id_counter
+
 js_macros =
   fn: ({env, walker, scope}, args...) ->
     fn_args = args[0]
@@ -117,7 +120,7 @@ js_macros =
       else if isSymbol(arg)
         if arg.name == '&'
           lhss.push fn_args[i+1]
-          rhss.push pre.List(pre.Symbol('terr$.Slice.call'), pre.Symbol('arguments'), pre.Literal(i))
+          rhss.push pre.List(pre.Symbol('Array.prototype.slice.call'), pre.Symbol('arguments'), pre.Literal(i))
           break
         else
           arg = walker(scope)(arg)
@@ -129,12 +132,14 @@ js_macros =
         rhss.push id
         lhss.push arg
 
+    fn_prelude = generateDestructuring(lhss, rhss).map(walker(new_scope))
+
     body = args.slice(1).map(walker(new_scope))
 
     if body.length == 0
       throw "Fn needs a body"
 
-    body = generateDestructuring(lhss, rhss).map(walker(new_scope)).concat(body)
+    body = fn_prelude.concat(body)
 
     ret_arg = body.pop()
 
@@ -391,10 +396,15 @@ js_macros =
     walker(scope) pre.List(pre.List.apply(null, fn_init.concat(body)))
 
   var: ({env, walker, scope}, id, value) ->
-    id = JS.Identifier(mungeSymbol id.name)
     value = walker(scope)(value)
 
-    scope.addSymbol(id.name, id)
+    name = mungeSymbol(id.name)
+    id = JS.Identifier(name)
+
+    if scope.resolve(name)
+      id.name = "#{name}$#{nextID()}"
+
+    scope.addSymbol(name, id)
 
     JS.VariableDeclaration [
       JS.VariableDeclarator(id, value)
@@ -665,7 +675,9 @@ TerribleToJsHandlers =
 
       root = parts[0]
 
-      if context[root]
+      if scoped = scope.resolve(root)
+        left = scoped
+      else if context[root]
         left = JS.MemberExpressionComputed(JS.Identifier('$env'), pre.Literal(mungeSymbol(root)))
       else
         left = JS.Identifier(mungeSymbol(root))
@@ -676,7 +688,7 @@ TerribleToJsHandlers =
         i += 1
       left
     else if id = scope.resolve(node.name)
-      JS.Identifier(mungeSymbol(node.name))
+      id
     else if context[node.name]?
       JS.MemberExpressionComputed(JS.Identifier('$env'), pre.Literal(node.name))
     else
