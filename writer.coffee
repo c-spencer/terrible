@@ -210,7 +210,9 @@ js_macros =
 
     fn = eval(macro_js)
 
-    console.log macro_js
+    # console.log "jsmacro #{token.value}"
+    # console.log macro_js
+    # console.log "---"
 
     js_macros[token.value] = fn
 
@@ -241,7 +243,12 @@ js_macros =
   'get': ({env, walker, scope}, obj, key) ->
     walker = walker(scope)
 
-    JS.MemberExpressionComputed(walker(obj), walker(key))
+    result = JS.MemberExpressionComputed(walker(obj), walker(key))
+
+    if obj.type == 'Symbol'
+      result.$context_symbol = obj.name
+
+    result
 
   def: ({env, walker, scope}, id, value) ->
     id = walker(scope)(id)
@@ -467,6 +474,35 @@ resolveSymbol = (s, env, scope) ->
 
   left
 
+analyseSymbol = (s, env, scope) ->
+  if s != '.' and s.match(/\./)
+    parts = explodeSymbol(s)
+
+    root = parts[0]
+    context = [root]
+    rest = []
+
+    i = 1
+    while i < parts.length
+      rest.push parts[i]
+      i += 1
+
+    constructor = rest[rest.length - 1]
+    if constructor == ""
+      rest.pop()
+
+    context.pop()
+
+    root: root
+    rest: rest
+    context_symbol: context.join('.')
+    constructor: constructor
+  else
+    root: s
+    rest: []
+    context_symbol: null
+    constructor: false
+
 explodeArray = (args, scope, walker, typeFactory) ->
   arr_ptr = 0
   arr_expr = [ ]
@@ -594,9 +630,16 @@ TerribleToJsHandlers =
     else if isSymbol(first)
       JS.CallExpression(walker(first), node.slice(1).map(walker))
     else
+      callee = walker(first)
+
+      if callee.$context_symbol
+        context = walker(pre.Symbol(callee.$context_symbol))
+      else
+        context = pre.Literal(null)
+
       JS.CallExpression(
-        JS.MemberExpression(walker(first), pre.Symbol('call'))
-        [pre.Literal(null)].concat(node.slice(1).map(walker))
+        JS.MemberExpression(callee, pre.Symbol('call'))
+        [context].concat(node.slice(1).map(walker))
       )
 
   Hash: (node, walker, context, scope) ->
@@ -667,30 +710,28 @@ TerribleToJsHandlers =
     if isKeyword(node)
       JS.CallExpression(terr$Keyword, [pre.Literal(node.toString())])
     else if node.name != '.' and node.name.match(/\./)
-      parts = node.name.split(/\./g)
 
-      # check if we're an initialiser
-      if parts[parts.length - 1] == ""
-        parts.pop()
+      analysis = analyseSymbol(node.name)
 
-      root = parts[0]
-
-      if scoped = scope.resolve(root)
+      if scoped = scope.resolve(analysis.root)
         left = scoped
-      else if context[root]
-        left = JS.MemberExpressionComputed(JS.Identifier('$env'), pre.Literal(mungeSymbol(root)))
+      else if context[analysis.root]
+        left = JS.MemberExpressionComputed(
+          JS.Identifier('$env'), pre.Literal(mungeSymbol(analysis.root))
+        )
       else
-        left = JS.Identifier(mungeSymbol(root))
+        left = JS.Identifier(mungeSymbol(analysis.root))
 
-      i = 1
-      while i < parts.length
-        left = JS.MemberExpression(left, JS.Identifier(mungeSymbol(parts[i])))
-        i += 1
+      for r in analysis.rest
+        left = JS.MemberExpression(left, JS.Identifier(mungeSymbol(r)))
+
+      left.$context_symbol = analysis.context_symbol
+
       left
     else if id = scope.resolve(node.name)
       id
-    else if context[node.name]?
-      JS.MemberExpressionComputed(JS.Identifier('$env'), pre.Literal(node.name))
+    else if context[mungeSymbol(node.name)]?
+      JS.MemberExpressionComputed(JS.Identifier('$env'), pre.Literal(mungeSymbol(node.name)))
     else
       JS.Identifier(mungeSymbol(node.name))
 
