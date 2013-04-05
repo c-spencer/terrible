@@ -164,10 +164,13 @@ class Environment
     forms = @reader.readString(str)
 
     for form in forms
-      gen = writer.asm(form, @context.env, @context.scope.newScope())
+      gens = writer.asm(form, @context.env, @context.scope.newScope())
+      if !gens.$explode
+        gens = [gens]
       @check_imports()
-      @context.js.push(gen)
-      result = @eval_ast(gen)
+      for gen in gens
+        @context.js.push(gen)
+        result = @eval_ast(gen)
 
     result
 
