@@ -104,11 +104,11 @@ class Reader
 
   interpretToken: (s) ->
     if s in ['nil', 'null']
-      return null
+      return pre.Literal(null)
     if s == 'true'
-      return true
+      return pre.Literal(true)
     if s == false
-      return false
+      return pre.Literal(false)
 
     if symbol = @matchSymbol(s)
       return symbol
