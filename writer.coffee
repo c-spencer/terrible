@@ -138,7 +138,7 @@ js_macros =
     ret_arg = body.pop()
 
     body = body.map (form) ->
-      if form.type.match(/(Expression|Literal)$/)
+      if form.type.match(/(Expression|Literal|Identifier)$/)
         JS.ExpressionStatement(form)
       else
         form
@@ -287,36 +287,64 @@ js_macros =
   ns: (env, walker, scope, ns) ->
     walker(scope) pre.List(pre.Symbol('set!'), pre.Symbol('ns$'), ns)
 
-  require: (env, walker, scope, bindings) ->
-    if bindings.type != 'Vector'
-      throw 'wrong require syntax'
+  require: (env, walker, scope, bindings, use_kw) ->
+    if bindings.type == 'Vector'
+      if bindings.length % 2
+        throw 'wrong number of args for let binding'
 
-    if bindings.length % 2
-      throw 'wrong number of args for let binding'
+      names = []
+      values = []
+      for v, i in bindings
+        if i % 2
+          values.push v
+        else
+          names.push v
 
-    names = []
-    values = []
-    for v, i in bindings
-      if i % 2
-        values.push v
+      values = values.map (dep_path) ->
+        if dep_path.type != 'Literal'
+          throw 'require paths must be string literals'
+
+        munged = mungeSymbol(dep_path.value)
+
+        env.requires$.push
+          path: dep_path.value
+          munged: munged
+
+        return pre.Symbol(munged)
+
+      destructuring = generateDestructuring(names, values, 'def')
+
+      walker(scope) pre.List.apply(null, [pre.Symbol('do')].concat(destructuring, pre.Literal(null)))
+    else if bindings.type == 'Literal'
+
+      munged = null
+      for req in env.requires$
+        if req.path == bindings.value
+          munged = req.munged
+          break
+
+      if !munged
+        munged = mungeSymbol(bindings.value)
+        env.requires$.push
+          path: bindings.value
+          munged: munged
+
+      if isKeyword(use_kw) and use_kw.toString() == 'use'
+        walker(scope) pre.List(
+          pre.Symbol('do')
+          pre.List(
+            pre.Symbol('for')
+            pre.Vector(pre.Vector(pre.Symbol('k'), pre.Symbol('v')), pre.Symbol(munged))
+            pre.List(
+              pre.Symbol('set!')
+              pre.List(pre.Symbol('get'), pre.Symbol('$env'), pre.Symbol('k'))
+              pre.Symbol('v')
+            )
+          )
+          pre.Symbol(munged)
+        )
       else
-        names.push v
-
-    values = values.map (dep_path) ->
-      if dep_path.type != 'Literal'
-        throw 'require paths must be string literals'
-
-      munged = mungeSymbol(dep_path.value)
-
-      env.requires$.push
-        path: dep_path.value
-        munged: munged
-
-      return pre.Symbol(munged)
-
-    destructuring = generateDestructuring(names, values, 'def')
-
-    walker(scope) pre.List.apply(null, [pre.Symbol('do')].concat(destructuring))
+        walker(scope) pre.Symbol(munged)
 
   let: (env, walker, scope, bindings, body...) ->
     if bindings.type != 'Vector'

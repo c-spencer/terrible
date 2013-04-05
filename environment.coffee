@@ -119,10 +119,8 @@ class Environment
       @requires_len = @context.env.requires$.length
 
   eval_ast: (ast) ->
-    if ast.type.match(/(Expression|Literal)$/)
+    if ast.type.match(/(Expression|Literal|Identifier)$/)
       ast = {type: 'ReturnStatement', argument: ast}
-
-    # print ast
 
     js = codegen.generate(ast)
     try
@@ -160,7 +158,7 @@ class Environment
       prompt: 'terrible> '
 
   force_statement: (node) ->
-    if node.type.match(/(Expression|Literal)$/)
+    if node.type.match(/(Expression|Literal|Identifier)$/)
       node = {type: 'ExpressionStatement', expression: node}
     else
       node
