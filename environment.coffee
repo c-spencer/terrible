@@ -12,6 +12,10 @@ class CommonJSModuleLoader
   require: (ns, name) ->
     require(name)
 
+require.extensions['.trbl'] = (module, filename) ->
+  env = Environment.fromFile(filename)
+  module.exports = env.context.env
+
 ModuleWrapper = (ns, deps, body) ->
   JS.Program([
     JS.ExpressionStatement(
@@ -80,9 +84,9 @@ ModuleWrapper = (ns, deps, body) ->
           { type: 'ThisExpression' }
           JS.FunctionExpression(
             deps.map((dep) -> JS.Identifier(dep.munged))
-            body.concat([
-              JS.Return(JS.Identifier('$env'))
-            ])
+            [JS.VariableDeclaration([
+              JS.VariableDeclarator(JS.Identifier('$env'), JS.ObjectExpression([]))
+            ])].concat(body, [JS.Return(JS.Identifier('$env'))])
           )
         ]
       ) # End Call
@@ -91,13 +95,25 @@ ModuleWrapper = (ns, deps, body) ->
 
 class Environment
 
+  @loaded = {}
+
+  @fromFile: (path) ->
+    path = require('path').resolve(path)
+    if !Environment.loaded[path]
+      Environment.loaded[path] = new Environment
+      Environment.loaded[path].eval require('fs').readFileSync(path, 'utf-8')
+      Environment.loaded[path]
+
+    Environment.loaded[path]
+
   constructor: ->
     @reader = new Reader()
     @module_loader = new CommonJSModuleLoader()
     @context =
       scope: new writer.Scope
       env: {
-        terr$: pre
+        decls: {}
+        env: {}
         requires$: []
         ns$: ""
       }
@@ -106,15 +122,18 @@ class Environment
     @requires_len = 0
     @deps = []
 
+    # prep the environment
+    @eval '(require [terr$ "./prelude"])'
+
   check_imports: ->
     if @context.env.requires$.length > @requires_len
       new_requires = @context.env.requires$.slice(@requires_len)
       for req in new_requires
-        console.log 'REQUIRED', req
-        @deps.push
+        spec =
           munged: req.munged
           path: req.path
           value: @module_loader.require(@context.env.ns$, req.path)
+        @deps.push spec
 
       @requires_len = @context.env.requires$.length
 
@@ -174,7 +193,7 @@ class Environment
     result = @eval(s)
     cb null, result
 
-env = new Environment
-
-console.log env.eval require('fs').readFileSync('./test.trbl', 'utf-8')
+# env = Environment.fromFile('./core.trbl')
+# console.log env.js()
+env = Environment.fromFile('./test.trbl')
 console.log env.js()

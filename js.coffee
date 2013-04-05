@@ -2,6 +2,20 @@ exports.Identifier = (name) ->
   type: 'Identifier'
   name: name
 
+exports.VariableDeclaration = (declarations) ->
+  type: 'VariableDeclaration'
+  declarations: declarations
+  kind: 'var'
+
+exports.VariableDeclarator = (id, init) ->
+  type: 'VariableDeclarator'
+  id: id
+  init: init
+
+exports.ObjectExpression = (properties) ->
+  type: 'ObjectExpression'
+  properties: properties
+
 exports.Literal = (value) ->
   type: 'Literal'
   value: value

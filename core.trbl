@@ -1,0 +1,8 @@
+(ns "core")
+
+(def defmacro
+  (macro [name & body]
+    `(def ~name (macro ~@body))))
+
+(defmacro defn [name bindings & body]
+  `(def ~name (fn ~bindings ~@body)))

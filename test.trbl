@@ -1,9 +1,14 @@
 (ns "test")
-(require [{List :List} "./prelude"])
 
-(require "./prelude" :use)
+(require "./core" :use)
 
-(console.log "LIST" (List.toString))
+(defn inc [x] (+ x 1))
+
+; (require [{List :List} "./prelude"])
+
+; (require "./prelude" :use)
+
+; (console.log "LIST" (List.toString))
 
 ; (def defmacro
 ;   (macro [name & body]

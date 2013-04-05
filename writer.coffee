@@ -194,6 +194,12 @@ js_macros =
     scope.unquote()
     walker(scope)(form)
 
+  'xor': (env, walker, scope, form) ->
+    JS.UnaryExpression(
+      '~'
+      walker(scope)(form)
+    )
+
   '@': (env, walker, scope, form) ->
     form = walker(scope)(form)
     form.$explode = true
@@ -336,9 +342,14 @@ js_macros =
             pre.Symbol('for')
             pre.Vector(pre.Vector(pre.Symbol('k'), pre.Symbol('v')), pre.Symbol(munged))
             pre.List(
-              pre.Symbol('set!')
-              pre.List(pre.Symbol('get'), pre.Symbol('$env'), pre.Symbol('k'))
-              pre.Symbol('v')
+              pre.Symbol('if')
+              pre.List(pre.Symbol('xor'), pre.List(pre.Symbol('k.indexOf'), pre.Literal('$')))
+              pre.Literal(null)
+              pre.List(
+                pre.Symbol('set!')
+                pre.List(pre.Symbol('get'), pre.Symbol('$env'), pre.Symbol('k'))
+                pre.Symbol('v')
+              )
             )
           )
           pre.Symbol(munged)
@@ -369,18 +380,13 @@ js_macros =
 
   var: (env, walker, scope, id, value) ->
     id = JS.Identifier(mungeSymbol id.name)
-
     value = walker(scope)(value)
 
     scope.addSymbol(id.name, id)
 
-    type: 'VariableDeclaration'
-    declarations: [
-      type: 'VariableDeclarator'
-      id: id
-      init: value
+    JS.VariableDeclaration [
+      JS.VariableDeclarator(id, value)
     ]
-    kind: 'var'
 
   'if': (env, walker, scope, args...) ->
     walker = walker(scope)
