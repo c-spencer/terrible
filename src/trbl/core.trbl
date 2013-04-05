@@ -10,6 +10,12 @@
   (let [walker (walker scope)]
     (JS.NewExpression (walker callee) (amap walker args))))
 
+(jsmacro "apply" [{walker :walker scope :scope JS :JS} callee args]
+  (let [walker (walker scope)]
+    (JS.CallExpression (JS.MemberExpression (walker callee)
+                                            (JS.Identifier "apply"))
+                       [(JS.Literal nil) (walker args)])))
+
 (jsmacro "jsmacro" []
   (console.log "User space jsmacros are not allowed."))
 
@@ -21,3 +27,12 @@
 
 (defmacro defn [name bindings & body]
   `(def ~name (fn ~bindings ~@body)))
+
+(defn + [left & args]
+  (for [right args]
+    (set! left (+ left right)))
+  left)
+
+(+ 1 2)
+
+(apply + [1 2 3])
