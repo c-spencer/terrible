@@ -1,6 +1,7 @@
 terribleWalker = require('./walker')
 pre = require './prelude'
 JS = require './js'
+codegen = require 'escodegen'
 
 print = (args...) -> console.log require('util').inspect(args, false, 20)
 
@@ -154,13 +155,6 @@ js_macros =
       body
     )
 
-  'new': ({env, walker, scope}, callee, args...) ->
-    walker = walker(scope)
-
-    type: 'NewExpression'
-    callee: walker(callee)
-    arguments: args.map(walker)
-
   '/': ({env, walker, scope}, args...) ->
     reduceBinaryOperator(args.map(walker(scope)), '/')
 
@@ -200,10 +194,24 @@ js_macros =
       walker(scope)(form)
     )
 
-  '@': ({env, walker, scope}, form) ->
-    form = walker(scope)(form)
-    form.$explode = true
-    form
+  jsmacro: ({env, walker, scope}, token, bindings, body...) ->
+    macro_ast = walker(scope) pre.List.apply(null, [
+      pre.Symbol('fn')
+      bindings
+      body...
+    ])
+
+    macro_js = codegen.generate(JS.ExpressionStatement macro_ast)
+
+    fn = eval(macro_js)
+
+    console.log macro_js
+
+    js_macros[token.value] = fn
+
+    a = []
+    a.$explode = true
+    a
 
   'amap': ({env, walker, scope}, fn, arr) ->
     walker = walker(scope)
@@ -347,15 +355,14 @@ js_macros =
             pre.Symbol(munged)
           )
         else
-          walker(scope) pre.List(
-            pre.Symbol('do')
-            pre.List(
+          JS.SequenceExpression([
+            walker(scope) pre.List(
               pre.Symbol('terr$.Copy')
               pre.Symbol('$env')
               pre.Symbol(munged)
             )
-            pre.Symbol(munged)
-          )
+            walker(scope) pre.Symbol(munged)
+          ])
       else
         walker(scope) pre.Symbol(munged)
 
@@ -553,7 +560,13 @@ TerribleToJsHandlers =
         )
 
     if isSymbol(first) and macro = js_macros[first.name]
-      return macro.apply(null, [{env: context, walker, scope, statement: node.$statement}, node.slice(1)...])
+      return macro.apply(null, [{
+        env: context
+        walker
+        scope
+        statement: node.$statement
+        JS
+      }, node.slice(1)...])
 
     if isSymbol(first) and (r = resolveSymbol(first.name, context, scope)) and r.$macro
       args = node.slice(1)
@@ -628,16 +641,6 @@ TerribleToJsHandlers =
       [pre.Literal(node.toString())]
     )
 
-  Program: (node, walker, context, scope) ->
-    walker = walker(scope)
-
-    type: 'Program'
-    body: node.body.map(walker).map (tlnode) ->
-      if tlnode.type.match(/Expression$/)
-        JS.ExpressionStatement(tlnode)
-      else
-        tlnode
-
   Literal: (node, walker, context, scope) ->
     if scope.quoted
       return JS.CallExpression(terr$Literal, [node])
@@ -678,6 +681,7 @@ TerribleToJsHandlers =
 
 intoJS = (tree, context, scope, TOP_LEVEL) ->
   terribleWalker(TerribleToJsHandlers, context, tree, scope)
+
 
 module.exports =
   asm: intoJS

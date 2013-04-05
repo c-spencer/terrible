@@ -200,7 +200,7 @@ class Environment
     result = @eval(s)
     cb null, result
 
-# env = Environment.fromFile('./core.trbl')
-# console.log env.js()
-env = Environment.fromFile('./test.trbl')
+env = Environment.fromFile('./core.trbl')
 console.log env.js()
+# env = Environment.fromFile('./test.trbl')
+# console.log env.js()

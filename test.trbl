@@ -1,6 +1,6 @@
 (ns "test")
 
-(require "./core" :use)
+(def core (require "./core" :use))
 
 (defn inc [x] (+ x 1))
 

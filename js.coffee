@@ -12,6 +12,11 @@ exports.VariableDeclarator = (id, init) ->
   id: id
   init: init
 
+exports.NewExpression = (callee, args) ->
+  type: 'NewExpression'
+  callee: callee
+  arguments: args
+
 exports.ObjectExpression = (properties) ->
   type: 'ObjectExpression'
   properties: properties
@@ -24,6 +29,10 @@ exports.CallExpression = (callee, args) ->
   type: 'CallExpression',
   callee: callee,
   arguments: args
+
+exports.SequenceExpression = (expressions) ->
+  type: 'SequenceExpression'
+  expressions: expressions
 
 exports.Block = (body) ->
   type: 'BlockStatement'
