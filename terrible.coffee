@@ -16,11 +16,24 @@ optimist = optimist.usage('Usage:')
     default: false
     type: 'boolean'
   })
+  .options('r', {
+    alias: 'read'
+    default: false
+    type: 'boolean'
+  })
 
 argv = optimist.argv
 
+print = (args...) -> console.log require('util').inspect(args, false, 20)
+
 if argv.help
   optimist.showHelp()
+  process.exit(0)
+else if argv.read
+  Reader = require './reader'
+  reader = new Reader()
+  console.log 'reading', argv._[0]
+  print reader.readString(argv._[0])
   process.exit(0)
 
 # Load project configuration
