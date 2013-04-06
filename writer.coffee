@@ -202,6 +202,15 @@ js_macros =
   '>': ({env, walker, scope}, args...) ->
     reduceBinaryOperator(args.map(walker(scope)), '>')
 
+  '=': ({env, walker, scope}, args...) ->
+    reduceBinaryOperator(args.map(walker(scope)), '===')
+
+  'or': ({env, walker, scope}, args...) ->
+    reduceBinaryOperator(args.map(walker(scope)), '||')
+
+  'and': ({env, walker, scope}, args...) ->
+    reduceBinaryOperator(args.map(walker(scope)), '&&')
+
   '.': ({env, walker, scope}, callee, member, args...) ->
     walker = walker(scope)
 
@@ -214,17 +223,6 @@ js_macros =
     scope = scope.newScope()
     scope.quote()
     walker(scope)(form)
-
-  '~': ({env, walker, scope}, form) ->
-    scope = scope.newScope()
-    scope.unquote()
-    walker(scope)(form)
-
-  'xor': ({env, walker, scope}, form) ->
-    JS.UnaryExpression(
-      '~'
-      walker(scope)(form)
-    )
 
   jsmacro: ({env, walker, scope}, token, bindings, body...) ->
     macro_ast = walker(scope) pre.List.apply(null, [
@@ -269,6 +267,12 @@ js_macros =
 
   'get': ({env, walker, scope}, obj, key) ->
     walker = walker(scope)
+
+    if !obj or !key
+      throw 'get requires 2 arguments'
+
+    if key.type == 'Keyword'
+      key = pre.Literal(key.toString())
 
     result = JS.MemberExpressionComputed(walker(obj), walker(key))
 
@@ -644,7 +648,7 @@ TerribleToJsHandlers =
         JS
       }, node.slice(1)...])
 
-    if isSymbol(first) and (r = resolveSymbol(first.name, context, scope)) and r.$macro
+    if isSymbol(first) and (r = resolveSymbol(mungeSymbol(first.name), context, scope)) and r.$macro
       args = node.slice(1)
       result = r.apply(null, args)
       walked = walker(scope)(result)

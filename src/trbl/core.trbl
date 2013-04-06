@@ -6,6 +6,11 @@
     (set! form.$explode true)
     form))
 
+(jsmacro "~" [{:keys [walker scope]} form]
+  (let [scope (scope.newScope)]
+    (scope.unquote)
+    ((walker scope) form)))
+
 (jsmacro "new" [{:keys [walker scope JS]} callee & args]
   (let [walker (walker scope)]
     (JS.NewExpression (walker callee) (amap walker args))))
@@ -16,6 +21,16 @@
                                             (JS.Identifier "apply"))
                        [(JS.Literal nil) (walker args)])))
 
+(jsmacro "xor" [{:keys [walker scope]} arg]
+  (JS.UnaryExpression "~" ((walker scope) arg)))
+
+(jsmacro "not" [{:keys [walker scope]} arg]
+  (JS.UnaryExpression "!" ((walker scope) arg)))
+
+(jsmacro "instance?" [{:keys [walker scope JS]} cls x]
+  (let [walker (walker scope)]
+    (JS.BinaryExpression (walker x) "instanceof" (walker cls))))
+
 (jsmacro "jsmacro" []
   (console.log "User space jsmacros are not allowed."))
 
@@ -25,14 +40,41 @@
   (macro [name & body]
     `(def ~name (macro ~@body))))
 
+(defmacro -> [left & applicators]
+  (for [app applicators]
+    (if (or (= app.type "Symbol") (= app.type "Keyword"))
+      (set! left `(~app ~left))
+      (do
+        (app.splice 1 0 left)
+        (set! left app))))
+  left)
+
+(-> {:a 6} :a)
+
 (defmacro defn [name bindings & body]
   `(def ~name (fn ~bindings ~@body)))
 
 (defn + [left & args]
-  (for [right args]
-    (set! left (+ left right)))
+  (do
+    (for [right args]
+      (set! left (+ left right)))
+    left))
+
+(defn reduce [cb left arr]
+  (if (= arr undefined)
+    (do
+      (set! arr left)
+      (set! left undefined)))
+  (for [right arr]
+    (if (= left undefined)
+      (set! left right)
+      (set! left (cb left right))))
   left)
 
 (+ 1 2)
 
+(reduce + [1 2 3])
+
 (apply + [1 2 3])
+
+(xor 5)
