@@ -6,6 +6,8 @@
 
 (console.log "Hello from trbl!")
 
+(fn [{:keys [a b c] :as hash} c] (+ a b c))
+
 ; (require [{List :List} "trbl!trbl/prelude"])
 
 ; (require "./prelude" :use)

@@ -1,16 +1,16 @@
 (ns "trbl/core")
 
-(jsmacro "@" [{walker :walker scope :scope} form]
+(jsmacro "@" [{:keys [walker scope]} form]
   (let [walker (walker scope)
         form (walker form)]
     (set! form.$explode true)
     form))
 
-(jsmacro "new" [{walker :walker scope :scope JS :JS} callee & args]
+(jsmacro "new" [{:keys [walker scope JS]} callee & args]
   (let [walker (walker scope)]
     (JS.NewExpression (walker callee) (amap walker args))))
 
-(jsmacro "apply" [{walker :walker scope :scope JS :JS} callee args]
+(jsmacro "apply" [{:keys [walker scope JS]} callee args]
   (let [walker (walker scope)]
     (JS.CallExpression (JS.MemberExpression (walker callee)
                                             (JS.Identifier "apply"))

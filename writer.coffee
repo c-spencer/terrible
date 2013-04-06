@@ -76,15 +76,42 @@ generateDestructuring = (lhss, rhss, assign='var') ->
         right = lhs[i+1]
         i += 2
 
-        clauses.push pre.List(
-          pre.Symbol(assign)
-          left
-          pre.List(
-            pre.Symbol('get')
-            rhs_id
-            pre.Literal(right.toString())
+        if left.type == 'Keyword'
+          switch left.toString()
+            when 'keys'
+              if right.type != 'Vector'
+                throw 'Must be Vector rhs for :keys'
+
+              for sym in right
+                clauses.push pre.List(
+                  pre.Symbol(assign)
+                  sym
+                  pre.List(
+                    pre.Symbol('get')
+                    rhs_id
+                    pre.Literal(sym.name)
+                  )
+                )
+            when 'as'
+              if right.type != 'Symbol'
+                throw 'Must be Symbol rhs for :as'
+
+              clauses.push pre.List(
+                pre.Symbol(assign)
+                right
+                rhs_id
+              )
+
+        else
+          clauses.push pre.List(
+            pre.Symbol(assign)
+            left
+            pre.List(
+              pre.Symbol('get')
+              rhs_id
+              pre.Literal(right.toString())
+            )
           )
-        )
     else
       clauses.push pre.List(pre.Symbol(assign), lhs, rhs)
 
