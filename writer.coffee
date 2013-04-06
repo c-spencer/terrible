@@ -2,6 +2,7 @@ terribleWalker = require('./walker')
 pre = require './src/coffee/prelude'
 JS = require './js'
 codegen = require 'escodegen'
+reader = new(require './reader')
 
 print = (args...) -> console.log require('util').inspect(args, false, 20)
 
@@ -147,7 +148,7 @@ js_macros =
       else if isSymbol(arg)
         if arg.name == '&'
           lhss.push fn_args[i+1]
-          rhss.push pre.List(pre.Symbol('Array.prototype.slice.call'), pre.Symbol('arguments'), pre.Literal(i))
+          rhss.push pre.List(reader.readString('Array.prototype.slice.call')[0], pre.Symbol('arguments'), pre.Literal(i))
           break
         else
           arg = walker(scope)(arg)
@@ -257,7 +258,7 @@ js_macros =
     walker = walker(scope)
 
     walker(pre.List(
-      pre.Symbol('terr$.Macro')
+      reader.readString('terr$.Macro')[0]
       pre.List.apply null, [
         pre.Symbol('fn')
         args
@@ -274,12 +275,7 @@ js_macros =
     if key.type == 'Keyword'
       key = pre.Literal(key.toString())
 
-    result = JS.MemberExpressionComputed(walker(obj), walker(key))
-
-    if obj.type == 'Symbol'
-      result.$context_symbol = obj.name
-
-    result
+    JS.MemberExpressionComputed(walker(obj), walker(key))
 
   def: ({env, walker, scope}, id, value) ->
     id = walker(scope)(id)
@@ -333,7 +329,7 @@ js_macros =
         inner_args.push right_form
 
       right_form = pre.List(
-        pre.Symbol('terr$.For')
+        reader.readString('terr$.For')[0]
         right
         pre.List.apply(null, inner_args)
         pre.Literal(right_form?)
@@ -396,14 +392,14 @@ js_macros =
       if isKeyword(use_kw) and use_kw.toString() == 'use'
         if statement
           walker(scope) pre.List(
-            pre.Symbol('terr$.Copy')
+            reader.readString('terr$.Copy')[0]
             pre.Symbol('$env')
             pre.Symbol(munged)
           )
         else
           JS.SequenceExpression([
             walker(scope) pre.List(
-              pre.Symbol('terr$.Copy')
+              reader.readString('terr$.Copy')[0]
               pre.Symbol('$env')
               pre.Symbol(munged)
             )
@@ -658,19 +654,12 @@ TerribleToJsHandlers =
 
     if isKeyword(first)
       JS.MemberExpressionComputed(walker(node[1]), pre.Literal(first.toString()))
-    else if isSymbol(first)
+    else if isSymbol(first) or first.type == 'List'
       JS.CallExpression(walker(first), node.slice(1).map(walker))
     else
-      callee = walker(first)
-
-      if callee.$context_symbol
-        context = walker(pre.Symbol(callee.$context_symbol))
-      else
-        context = pre.Literal(null)
-
-      JS.CallExpression(
-        JS.MemberExpression(callee, pre.Symbol('call'))
-        [context].concat(node.slice(1).map(walker))
+      ret = JS.CallExpression(
+        JS.MemberExpression(walker(first), pre.Symbol('call'))
+        [pre.Literal(null)].concat(node.slice(1).map(walker))
       )
 
   Hash: (node, walker, context, scope) ->
@@ -740,25 +729,6 @@ TerribleToJsHandlers =
 
     if isKeyword(node)
       JS.CallExpression(terr$Keyword, [pre.Literal(node.toString())])
-    else if node.name != '.' and node.name.match(/\./)
-
-      analysis = analyseSymbol(node.name)
-
-      if scoped = scope.resolve(analysis.root)
-        left = scoped
-      else if context[analysis.root]
-        left = JS.MemberExpressionComputed(
-          JS.Identifier('$env'), pre.Literal(mungeSymbol(analysis.root))
-        )
-      else
-        left = JS.Identifier(mungeSymbol(analysis.root))
-
-      for r in analysis.rest
-        left = JS.MemberExpression(left, JS.Identifier(mungeSymbol(r)))
-
-      left.$context_symbol = analysis.context_symbol
-
-      left
     else if id = scope.resolve(node.name)
       id
     else if context[mungeSymbol(node.name)]?

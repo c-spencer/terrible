@@ -8,7 +8,10 @@ class Buffer
     @pos = 0
 
   read1: ->
-    if @pos >= @string.length
+    if @pos == @string.length
+      ++@pos
+      return " "
+    else if @pos > @string.length
       throw 'EOF while reading'
 
     ch = @string[@pos]
@@ -99,39 +102,74 @@ class Reader
         else
           buffer.unread(ch2)
 
-      token = @readToken(buffer, ch)
-      return @interpretToken(token)
+      return @readToken(buffer, ch)
 
-  interpretToken: (s) ->
+  reifySymbol: (s) ->
     if s in ['nil', 'null']
       return pre.Literal(null)
     if s == 'true'
       return pre.Literal(true)
-    if s == false
+    if s == 'false'
       return pre.Literal(false)
     if s == 'undefined'
       return pre.Symbol('undefined')
-
-    if symbol = @matchSymbol(s)
-      return symbol
+    if symbolPattern.exec(s)
+      return pre.Symbol(s)
 
     throw "Invalid token: #{s}"
 
-  matchSymbol: (s) ->
-    if symbolPattern.exec(s)
-      if s[0] == ":"
-        return pre.Keyword(s.substring(1))
-      else
-        return pre.Symbol(s)
-    else
-      null
-
   readToken: (buffer, s) ->
+
+    if s == ":" # keyword
+      kw = ""
+      while true
+        ch = buffer.read1()
+        if @isWhitespace(ch) or @isTerminatingMacro(ch)
+          buffer.unread(ch)
+          if kw == ""
+            return pre.Symbol(s)
+          return pre.Keyword(kw)
+        kw += ch
+
+    left = null
+
+    finalise = (s) =>
+      if left == null
+        return @reifySymbol(s)
+      if s == ""
+        return left
+      return pre.List(
+        pre.Symbol('get')
+        left
+        pre.Literal(s)
+      )
+
     while true
       ch = buffer.read1()
+
+      if ch == "["
+        left = pre.List(
+          pre.Symbol('get')
+          finalise(s)
+          @read(buffer, true)
+        )
+        s = ""
+
+        ch = buffer.read1()
+        if ch == "]"
+          continue
+
+        throw "Unexpected symbol form"
+
       if @isWhitespace(ch) or @isTerminatingMacro(ch)
         buffer.unread(ch)
-        return s
+        return finalise(s)
+
+      if ch == "."
+        left = finalise(s)
+        s = ""
+        continue
+
       s += ch
 
   readNumber: (buffer, s) ->
