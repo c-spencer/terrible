@@ -109,6 +109,8 @@ class Reader
       return pre.Literal(true)
     if s == false
       return pre.Literal(false)
+    if s == 'undefined'
+      return pre.Symbol('undefined')
 
     if symbol = @matchSymbol(s)
       return symbol
