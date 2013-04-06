@@ -63,9 +63,8 @@ else
     env = Environment.fromFile(target)
     console.log env.js()
   else if argv.compile
-    Environment.compile = true
-    Environment.loaded = {}
     env = Environment.fromFile(target)
+    env.js(compile: true)
   else
     env = Environment.fromFile(target)
     env.repl()

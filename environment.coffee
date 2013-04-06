@@ -19,6 +19,8 @@ PathResolver =
   clean: (name) ->
     name.replace(/(^[a-z]*!|\.[a-z]+$)/, '')
 
+  is_trbl: (path) -> path.match(/\.trbl$/)
+
   FSRel: (ns, name) ->
     if name.match(/^!/)
       return name.substring(1)
@@ -48,12 +50,15 @@ PathResolver =
 
 class CommonJSModuleLoader
   require: (ns, name, env_path) ->
-    require PathResolver.FSAbs(ns, name, env_path)
+    abs = PathResolver.FSAbs(ns, name, env_path)
+    if PathResolver.is_trbl(abs)
+      Environment.fromFile(abs)
+    else
+      require(abs)
 
-
-require.extensions['.trbl'] = (module, filename) ->
-  env = Environment.fromFile(filename)
-  module.exports = env.context.env
+# require.extensions['.trbl'] = (module, filename) ->
+#   env = Environment.fromFile(filename)
+#   module.exports = env.context.env
 
 ModuleWrapper = (ns, deps, body) ->
   JS.Program([
@@ -149,11 +154,6 @@ class Environment
       Environment.loaded[filepath] = new Environment(filepath)
       Environment.loaded[filepath].eval require('fs').readFileSync(filepath, 'utf-8')
 
-      if Environment.compile
-        env = Environment.loaded[filepath]
-        filename = path.basename(env.context.env.ns$) + ".js"
-        require('fs').writeFileSync(path.join(path.dirname(filepath), filename), env.js())
-
     Environment.loaded[filepath]
 
   constructor: (@filepath, @compile=false) ->
@@ -187,10 +187,21 @@ class Environment
     if @context.env.requires$.length > @requires_len
       new_requires = @context.env.requires$.slice(@requires_len)
       for req in new_requires
+        mod = @module_loader.require(@context.env.ns$, req.path, @filepath)
+
+        if mod instanceof Environment
+          context = mod.context.env
+          environment = mod
+        else
+          context = mod
+          environment = null
+
         spec =
           munged: req.munged
           path: req.path
-          value: @module_loader.require(@context.env.ns$, req.path, @filepath)
+          context: context
+          environment: environment
+
         @deps.push spec
 
       @requires_len = @context.env.requires$.length
@@ -205,7 +216,7 @@ class Environment
       values = [@context.env]
       for dep in @deps
         keys.push dep.munged
-        values.push dep.value
+        values.push dep.context
 
       fn_js = "(function (js) { return new Function('#{keys.join('\', \'')}', js) })"
       fn = eval(fn_js)
@@ -265,11 +276,69 @@ class Environment
     else
       node
 
-  js: ->
-    js = @context.js.map(@force_statement)
-    ast = ModuleWrapper(@context.env.ns$, @deps, js)
-    # require('fs').writeFileSync('genast.js', require('util').inspect(ast, false, 20))
-    codegen.generate(ast)
+  js: (opts = {}) ->
+    if opts.deps
+
+      dep_envs = []
+      deps = []
+
+      add_env_dep = (dep) ->
+        for dep_env in dep_envs
+          if dep_env.munged == dep.munged
+            return
+
+        dep_envs.unshift(dep)
+
+      for dep in @deps
+        if dep.environment
+          dep_env = dep.environment
+          if dep_env == @
+            continue
+
+          add_env_dep(dep)
+          dep_detail = dep_env.js(deps: true)
+          dep_detail.dep_envs.map(add_env_dep)
+
+          deps.concat dep_detail.deps
+        else
+          deps.push dep
+
+      return { deps, dep_envs }
+
+    if opts.compile
+
+      dep_info = @js(deps: true)
+
+      js = []
+
+      wrapDep = (dep) =>
+        JS.FunctionExpression(
+          []
+          [
+            JS.VariableDeclaration([
+              JS.VariableDeclarator(JS.Identifier('$env'), JS.ObjectExpression([]))
+            ])
+            dep.environment.context.js.map(@force_statement)...
+            JS.Return(JS.Identifier('$env'))
+          ]
+        )
+
+      for dep_env in dep_info.dep_envs
+        js.push JS.VariableDeclaration([
+          JS.VariableDeclarator(JS.Identifier(dep_env.munged), wrapDep(dep_env))
+        ])
+
+      js = js.concat(@context.js.map(@force_statement))
+
+      ast = ModuleWrapper(@context.env.ns$, dep_info.deps, js)
+
+      console.log codegen.generate(ast)
+
+    else
+      js = @context.js.map(@force_statement)
+      ast = ModuleWrapper(@context.env.ns$, @deps, js)
+      # require('fs').writeFileSync('genast.js', require('util').inspect(ast, false, 20))
+      codegen.generate(ast)
 
 # env = Environment.fromFile('./src/trbl/core.trbl')
 # console.log env.js()
