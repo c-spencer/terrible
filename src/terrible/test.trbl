@@ -1,4 +1,4 @@
-(ns "trbl/test")
+(ns "terrible/test")
 
 (require [codegen "!escodegen"])
 

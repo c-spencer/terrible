@@ -1,5 +1,5 @@
 terribleWalker = require('./walker')
-pre = require './src/coffee/prelude'
+pre = require './prelude'
 JS = require './js'
 codegen = require 'escodegen'
 reader = new(require './reader')

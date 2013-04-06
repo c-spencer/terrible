@@ -8,7 +8,7 @@ url = require 'url'
 
 print = (args...) -> console.log require('util').inspect(args, false, 20)
 
-pre = require './src/coffee/prelude'
+pre = require './prelude'
 
 PathResolver =
   AMD: (ns, name) ->
@@ -181,7 +181,7 @@ class Environment
 
     # prep the environment
     @eval '(require [terr$ "coffee!coffee/prelude"])
-           (require "trbl!trbl/core" :use)'
+           (require "trbl!terrible/core" :use)'
 
   check_imports: ->
     if @context.env.requires$.length > @requires_len
@@ -340,9 +340,9 @@ class Environment
       # require('fs').writeFileSync('genast.js', require('util').inspect(ast, false, 20))
       codegen.generate(ast)
 
-# env = Environment.fromFile('./src/trbl/core.trbl')
+# env = Environment.fromFile('./src/terrible/core.trbl')
 # console.log env.js()
-# env = Environment.fromFile('./src/trbl/test.trbl')
+# env = Environment.fromFile('./src/terrible/test.trbl')
 # console.log env.js()
 
 module.exports = Environment

@@ -30,7 +30,7 @@ if argv.help
   optimist.showHelp()
   process.exit(0)
 else if argv.read
-  Reader = require './reader'
+  Reader = require './src/coffee/reader'
   reader = new Reader()
   console.log 'reading', argv._[0]
   print reader.readString(argv._[0])
@@ -38,7 +38,7 @@ else if argv.read
 
 # Load project configuration
 
-Environment = require('./environment')
+Environment = require('./src/coffee/environment')
 project_env = Environment.fromFile('project.trbl')
 
 default_settings =

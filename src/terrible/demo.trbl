@@ -1,4 +1,4 @@
-(ns "trbl/demo")
+(ns "terrible/demo")
 
 (defn inc [x] (+ x 1))
 
