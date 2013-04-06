@@ -657,7 +657,7 @@ TerribleToJsHandlers =
     else if isSymbol(first) or first.type == 'List'
       JS.CallExpression(walker(first), node.slice(1).map(walker))
     else
-      ret = JS.CallExpression(
+      JS.CallExpression(
         JS.MemberExpression(walker(first), pre.Symbol('call'))
         [pre.Literal(null)].concat(node.slice(1).map(walker))
       )
