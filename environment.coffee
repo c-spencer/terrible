@@ -180,7 +180,7 @@ class Environment
       @repl_session.prompt = "terrible (#{@context.env.ns$})> "
 
     # prep the environment
-    @eval '(require [terr$ "coffee/prelude"])
+    @eval '(require [terr$ "coffee!coffee/prelude"])
            (require "trbl!trbl/core" :use)'
 
   check_imports: ->
