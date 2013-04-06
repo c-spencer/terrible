@@ -43,9 +43,7 @@ PathResolver =
     if name.match(/^!/)
       return name.substring(1)
 
-    abs = path.join(path.dirname(root), PathResolver.FSRel(ns, name))
-    console.log abs
-    abs
+    path.join(path.dirname(root), PathResolver.FSRel(ns, name))
 
 
 class CommonJSModuleLoader

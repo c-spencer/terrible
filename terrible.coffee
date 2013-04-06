@@ -51,8 +51,6 @@ for k, v of project_settings
 
 project_settings = default_settings
 
-console.log project_settings
-
 # Do task
 
 if argv._.length == 0 # start repl
