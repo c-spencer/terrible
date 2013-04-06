@@ -171,6 +171,7 @@ class Environment
     @deps = []
 
     @prepped = null
+    @print_js = false
 
   prep: ->
     @prepped = true
@@ -213,7 +214,8 @@ class Environment
     catch exc
       result = exc
 
-    # console.log js
+    if @print_js
+      console.log js
 
     result
 
@@ -242,6 +244,8 @@ class Environment
     result
 
   repl: ->
+    @print_js = true
+
     if !@context.env.ns$
       @eval('(ns "user")')
 
