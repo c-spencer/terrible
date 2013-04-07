@@ -8,6 +8,12 @@ class Runner
 
   eval_expect: (str, res) =>
     it str, =>
-      expect(@env.eval(str)).toEqual(res)
+      expect(@env.eval(str, true)).toEqual(res)
+
+  eval: (str) =>
+    @env.eval(str, true)
+
+  get_env: =>
+    @env.context.env
 
 module.exports = Runner
