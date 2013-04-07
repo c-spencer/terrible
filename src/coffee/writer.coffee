@@ -188,17 +188,31 @@ js_macros =
       body
     )
 
+  # Basic arithmetic
+
   '/': ({env, walker, scope}, args...) ->
-    reduceBinaryOperator(args.map(walker(scope)), '/')
+    if args.length == 1
+      JS.BinaryExpression(
+        JS.Literal(1)
+        "/"
+        walker(scope)(args[0])
+      )
+    else
+      reduceBinaryOperator(args.map(walker(scope)), '/')
 
   '+': ({env, walker, scope}, args...) ->
     reduceBinaryOperator(args.map(walker(scope)), '+')
 
   '-': ({env, walker, scope}, args...) ->
-    reduceBinaryOperator(args.map(walker(scope)), '-')
+    if args.length == 1
+      JS.UnaryExpression '-', walker(scope)(args[0])
+    else
+      reduceBinaryOperator(args.map(walker(scope)), '-')
 
   '*': ({env, walker, scope}, args...) ->
     reduceBinaryOperator(args.map(walker(scope)), '*')
+
+  # boolean operators
 
   '>': ({env, walker, scope}, args...) ->
     reduceBinaryOperator(args.map(walker(scope)), '>')
@@ -206,11 +220,46 @@ js_macros =
   '=': ({env, walker, scope}, args...) ->
     reduceBinaryOperator(args.map(walker(scope)), '===')
 
+  '!=': ({env, walker, scope}, args...) ->
+    reduceBinaryOperator(args.map(walker(scope)), '!==')
+
+  '||': ({env, walker, scope}, args...) ->
+    reduceBinaryOperator(args.map(walker(scope)), '||')
+
   'or': ({env, walker, scope}, args...) ->
     reduceBinaryOperator(args.map(walker(scope)), '||')
 
+  '&&': ({env, walker, scope}, args...) ->
+    reduceBinaryOperator(args.map(walker(scope)), '&&')
+
   'and': ({env, walker, scope}, args...) ->
     reduceBinaryOperator(args.map(walker(scope)), '&&')
+
+  # bitwise operators
+
+  # maybe consider something
+  'bitwise-not': ({env, walker, scope}, args...) ->
+    reduceBinaryOperator(args.map(walker(scope)), '~')
+
+  '^': ({env, walker, scope}, args...) ->
+    reduceBinaryOperator(args.map(walker(scope)), '^')
+
+  '|': ({env, walker, scope}, args...) ->
+    reduceBinaryOperator(args.map(walker(scope)), '|')
+
+  '&': ({env, walker, scope}, args...) ->
+    reduceBinaryOperator(args.map(walker(scope)), '&')
+
+  '<<': ({env, walker, scope}, args...) ->
+    reduceBinaryOperator(args.map(walker(scope)), '<<')
+
+  '>>': ({env, walker, scope}, args...) ->
+    reduceBinaryOperator(args.map(walker(scope)), '>>')
+
+  '>>>': ({env, walker, scope}, args...) ->
+    reduceBinaryOperator(args.map(walker(scope)), '>>>')
+
+  # helper for member expressions
 
   '.': ({env, walker, scope}, callee, member, args...) ->
     walker = walker(scope)
@@ -219,6 +268,8 @@ js_macros =
       JS.MemberExpression(walker(callee), walker(member))
       args.map(walker)
     )
+
+  # syntax quote
 
   '`': ({env, walker, scope}, form) ->
     scope = scope.newScope()

@@ -21,7 +21,7 @@
                                             (JS.Identifier "apply"))
                        [(JS.Literal nil) (walker args)])))
 
-(jsmacro "xor" [{:keys [walker scope]} arg]
+(jsmacro "bitwise-not" [{:keys [walker scope]} arg]
   (JS.UnaryExpression "~" ((walker scope) arg)))
 
 (jsmacro "not" [{:keys [walker scope]} arg]
@@ -33,8 +33,6 @@
 
 (jsmacro "jsmacro" []
   (console.log "User space jsmacros are not allowed."))
-
-(new A)
 
 (def defmacro
   (macro [name & body]
@@ -48,6 +46,11 @@
         (app.splice 1 0 left)
         (set! left app))))
   left)
+
+; Exponentiation
+(defmacro ** [a b & r]
+  (if (not b) a
+    `(** (Math.pow ~a ~b) ~@r)))
 
 (-> {:a 6} :a)
 
@@ -77,4 +80,4 @@
 
 (apply + [1 2 3])
 
-(xor 5)
+(bitwise-not 5)

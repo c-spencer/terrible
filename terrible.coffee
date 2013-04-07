@@ -54,7 +54,8 @@ project_settings = default_settings
 # Do task
 
 if argv._.length == 0 # start repl
-  env = new Environment(__dirname + "/#{project_settings['src-directory']}/user")
+  env = new Environment()
+  env.filepath = __dirname + "/#{project_settings['src-directory']}/user"
   env.repl()
 else
   target = argv._[0]

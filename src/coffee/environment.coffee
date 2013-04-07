@@ -151,12 +151,13 @@ class Environment
   @fromFile: (filepath) ->
     filepath = path.resolve(filepath)
     if !Environment.loaded[filepath]
-      Environment.loaded[filepath] = new Environment(filepath)
+      Environment.loaded[filepath] = new Environment
+      Environment.loaded[filepath].filepath = filepath
       Environment.loaded[filepath].eval require('fs').readFileSync(filepath, 'utf-8')
 
     Environment.loaded[filepath]
 
-  constructor: (@filepath, @compile=false) ->
+  constructor: () ->
     @reader = new Reader()
     @module_loader = new CommonJSModuleLoader()
     @context =
@@ -173,15 +174,25 @@ class Environment
     @prepped = null
     @print_js = false
 
-  prep: ->
-    @prepped = true
+  set_ns: (ns) ->
+    @context.env.ns$ = ns
+    @check_env()
 
-    if @repl_session?
-      @repl_session.prompt = "terrible (#{@context.env.ns$})> "
+  get_ns: ->
+    @context.env.ns$
 
-    # prep the environment
-    @eval '(require [terr$ "coffee!coffee/prelude"])
-           (require "trbl!terrible/core" :use)'
+  check_env: ->
+    if !@prepped and @get_ns()
+      @prepped = true
+
+      if @repl_session?
+        @repl_session.prompt = "terrible (#{@context.env.ns$})> "
+
+      # prep the environment
+      @eval '(require [terr$ "coffee!coffee/prelude"])
+             (require "trbl!terrible/core" :use)'
+
+    @check_imports()
 
   check_imports: ->
     if @context.env.requires$.length > @requires_len
@@ -240,10 +251,7 @@ class Environment
         form.$statement = true
 
       gens = writer.asm(form, @context.env, @context.scope.newScope())
-
-      if @context.env.ns$ and !@prepped
-        @prep()
-      @check_imports()
+      @check_env()
 
       if !gens.$explode
         gens = [gens]
