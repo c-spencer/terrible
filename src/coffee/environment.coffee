@@ -188,9 +188,13 @@ class Environment
       if @repl_session?
         @repl_session.prompt = "terrible (#{@context.env.ns$})> "
 
-      # prep the environment
-      @eval '(require [terr$ "coffee!coffee/prelude"])
-             (require "trbl!terrible/core" :use)'
+      console.log "Checking ns", @get_ns()
+
+      if @get_ns() != "terrible/jsm"
+        if @get_ns() != "terrible/prelude"
+          @eval '(require [terr$ "trbl!terrible/prelude"])'
+        if @get_ns() not in ["terrible/core", "terrible/prelude"]
+          @eval '(require "trbl!terrible/core" :use)'
 
     @check_imports()
 
@@ -234,6 +238,7 @@ class Environment
 
       result = fn(js).apply(null, values)
     catch exc
+      # console.log exc.stack
       result = exc
 
     if @print_js

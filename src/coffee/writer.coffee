@@ -582,6 +582,10 @@ analyseSymbol = (s, env, scope) ->
     constructor: false
 
 explodeArray = (args, scope, walker, typeFactory) ->
+
+  if args.length == 0
+    return JS.ArrayExpression([])
+
   arr_ptr = 0
   arr_expr = [ ]
 
@@ -612,7 +616,7 @@ explodeArray = (args, scope, walker, typeFactory) ->
         if right.$explode
           left.arguments.push right
         else
-          left.arguments.push {type: 'ArrayExpression', elements: [right]}
+          left.arguments.push JS.ArrayExpression([right])
       else if right.$explode
         started_concat = true
         left = JS.CallExpression(
@@ -626,10 +630,7 @@ explodeArray = (args, scope, walker, typeFactory) ->
     if left.$explode
       left = left
     else
-      left = {
-        type: 'ArrayExpression'
-        elements: [left]
-      }
+      left = JS.ArrayExpression([left])
 
     started_concat = false
 
@@ -640,7 +641,7 @@ explodeArray = (args, scope, walker, typeFactory) ->
         else if left.arguments[left.arguments.length - 1].type == 'ArrayExpression'
           left.arguments[left.arguments.length - 1].elements.push right
         else
-          left.arguments.push {type: 'ArrayExpression', elements: [right]}
+          left.arguments.push JS.ArrayExpression([right])
       else if right.$explode or left.type != 'ArrayExpression'
         started_concat = true
         left = JS.CallExpression(

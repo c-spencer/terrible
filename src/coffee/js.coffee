@@ -42,6 +42,13 @@ exports.Return = (arg) ->
   type: 'ReturnStatement',
   argument: arg
 
+exports.ForStatement = (init, test, update, body) ->
+  type: 'ForStatement'
+  init: init
+  test: test
+  update: update
+  body: body
+
 exports.FunctionExpression = (params, body) ->
   type: 'FunctionExpression'
   params: params

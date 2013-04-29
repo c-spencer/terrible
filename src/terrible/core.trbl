@@ -1,38 +1,6 @@
 (ns "terrible/core")
 
-(jsmacro "@" [{:keys [walker scope]} form]
-  (let [walker (walker scope)
-        form (walker form)]
-    (set! form.$explode true)
-    form))
-
-(jsmacro "~" [{:keys [walker scope]} form]
-  (let [scope (scope.newScope)]
-    (scope.unquote)
-    ((walker scope) form)))
-
-(jsmacro "new" [{:keys [walker scope JS]} callee & args]
-  (let [walker (walker scope)]
-    (JS.NewExpression (walker callee) (amap walker args))))
-
-(jsmacro "apply" [{:keys [walker scope JS]} callee args]
-  (let [walker (walker scope)]
-    (JS.CallExpression (JS.MemberExpression (walker callee)
-                                            (JS.Identifier "apply"))
-                       [(JS.Literal nil) (walker args)])))
-
-(jsmacro "bitwise-not" [{:keys [walker scope]} arg]
-  (JS.UnaryExpression "~" ((walker scope) arg)))
-
-(jsmacro "not" [{:keys [walker scope]} arg]
-  (JS.UnaryExpression "!" ((walker scope) arg)))
-
-(jsmacro "instance?" [{:keys [walker scope JS]} cls x]
-  (let [walker (walker scope)]
-    (JS.BinaryExpression (walker x) "instanceof" (walker cls))))
-
-(jsmacro "jsmacro" []
-  (console.log "User space jsmacros are not allowed."))
+(require "trbl!terrible/jsm")
 
 (def defmacro
   (macro [name & body]

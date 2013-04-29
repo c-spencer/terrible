@@ -1,7 +1,8 @@
 r = new (require('./runner'))
 
-describe "definition", ->
+describe "Vector definition", ->
+  r.eval_expect "[]", []
   r.eval_expect "[1 2 3]", [1, 2, 3]
 
-describe "splats", ->
+describe "Vector splats", ->
   r.eval_expect "[1 2 3 @[4 5]]", [1, 2, 3, 4, 5]

@@ -1,0 +1,51 @@
+(ns "terrible/prelude")
+
+(require "trbl!terrible/jsm")
+
+(def Literal (fn [v] {:type "Literal" :value v}))
+(def Symbol (fn [v] {:type "Symbol" :name v}))
+(def List (fn [& args]
+  (set! args.type "List")
+  args))
+(def Vector (fn [& args]
+  (set! args.type "Vector")
+  args))
+(def Hash (fn [& args]
+  (set! args.type "Hash")
+  args))
+(def Keyword (fn [name]
+  (let [kw (fn [m] m[name])]
+    (set! kw.ToString (fn [] name))
+    (set! kw.type "Keyword")
+    kw)))
+(def Macro (fn [f]
+  (set! f.$macro true)
+  f))
+(def Concat (fn [left & right]
+  (let [r (left.concat.apply left right)]
+    (set! r.type left.type)
+    r)))
+(def Slice Array.prototype.slice)
+
+(def For (fn [iteratee body concat?]
+  (var result [])
+
+  (if (instance? Array iteratee)
+    (iteratee.map (fn [iter]
+      (if concat?
+        (result.push.apply result (body iter))
+        (result.push (body iter)))))
+    (. (Object.keys iteratee) map (fn [k]
+      (var v iteratee[k])
+      (if concat?
+        (result.push.apply result (body [k v]))
+        (result.push (body [k v]))))))
+
+  result))
+
+(def Copy (fn [target source]
+  (. (Object.keys source) map (fn [k]
+    (if (not (bitwise-not (k.indexOf "$")))
+      (set! target[k] source[k])
+    )))
+  target))
