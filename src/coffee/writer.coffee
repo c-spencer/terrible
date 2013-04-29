@@ -317,6 +317,45 @@ js_macros =
       ]
     ))
 
+  'throw': ({env, walker, scope}, arg) ->
+    JS.CallExpression(
+      JS.FunctionExpression(
+        []
+        [JS.ThrowStatement(walker(scope)(arg))]
+      )
+      []
+    )
+
+  'cond': ({env, walker, scope}, body...) ->
+
+    i = 0
+
+    # JS.CallExpression condbody, []
+
+    chain = null
+    last_part = null
+
+    while i < body.length
+      condition = body[i]
+      consequent = body[i+1]
+
+      test = JS.IfStatement(
+        walker(scope)(condition)
+        JS.Return(walker(scope)(consequent))
+        null
+      )
+
+      if chain
+        last_part.alternate = test
+      else
+        chain = test
+      last_part = test
+
+      i += 2
+
+    JS.CallExpression(JS.FunctionExpression([], [chain]), [])
+
+
   'get': ({env, walker, scope}, obj, key) ->
     walker = walker(scope)
 
