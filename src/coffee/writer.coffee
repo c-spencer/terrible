@@ -342,6 +342,10 @@ js_macros =
       condition = body[i]
       consequent = body[i+1]
 
+      if condition.type == "Keyword" and condition.toString() == "else"
+        last_part.alternate = JS.Return(walker(scope)(consequent))
+        break
+
       test = JS.IfStatement(
         walker(scope)(condition)
         JS.Return(walker(scope)(consequent))
