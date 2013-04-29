@@ -319,11 +319,14 @@ js_macros =
 
   'throw': ({env, walker, scope}, arg) ->
     JS.CallExpression(
-      JS.FunctionExpression(
-        []
-        [JS.ThrowStatement(walker(scope)(arg))]
+      JS.MemberExpression(
+        JS.FunctionExpression(
+          []
+          [JS.ThrowStatement(walker(scope)(arg))]
+        )
+        JS.Identifier('call')
       )
-      []
+      [JS.This()]
     )
 
   'cond': ({env, walker, scope}, body...) ->
@@ -353,7 +356,12 @@ js_macros =
 
       i += 2
 
-    JS.CallExpression(JS.FunctionExpression([], [chain]), [])
+    JS.CallExpression(
+      JS.MemberExpression(
+        JS.FunctionExpression([], [chain])
+        JS.Identifier('call')
+      )
+    , [JS.This()])
 
 
   'get': ({env, walker, scope}, obj, key) ->
@@ -370,10 +378,12 @@ js_macros =
   def: ({env, walker, scope}, id, value) ->
     id = walker(scope)(id)
 
+    if id.type == 'Identifier'
+      id = JS.MemberExpression(JS.Identifier('$env'), id)
+
     type: 'AssignmentExpression'
     operator: '='
-    left:
-      JS.MemberExpression(JS.Identifier('$env'), id)
+    left: id
     right:
       walker(scope)(value)
 
@@ -389,7 +399,14 @@ js_macros =
 
   do: ({env, walker, scope}, body...) ->
     walker = walker(scope.newScope())
-    walker(pre.List(pre.List.apply(null, [pre.Symbol('fn'), pre.Vector(), body...])))
+
+    JS.CallExpression(
+      JS.MemberExpression(
+        walker(pre.List.apply(null, [pre.Symbol('fn'), pre.Vector(), body...]))
+        JS.Identifier('call')
+      )
+      [JS.This()]
+    )
 
   for: ({env, walker, scope}, bindings, body...) ->
     if bindings.type != 'Vector'
@@ -517,7 +534,13 @@ js_macros =
 
     scope = scope.newScope()
 
-    walker(scope) pre.List(pre.List.apply(null, fn_init.concat(body)))
+    JS.CallExpression(
+      JS.MemberExpression(
+        walker(scope)(pre.List.apply(null, fn_init.concat(body)))
+        JS.Identifier('call')
+      )
+      [JS.This()]
+    )
 
   var: ({env, walker, scope}, id, value) ->
     value = walker(scope)(value)

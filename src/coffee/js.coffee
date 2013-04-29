@@ -115,3 +115,6 @@ exports.MemberExpressionComputed = (object, property) ->
 exports.ThrowStatement = (arg) ->
   type: 'ThrowStatement'
   argument: arg
+
+exports.This = ->
+  type: 'ThisExpression'
